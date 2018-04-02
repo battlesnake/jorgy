@@ -77,12 +77,13 @@ public class Analyser {
 			if (Files.isDirectory(path)) {
 				continue;
 			}
-			if (path.getFileName().endsWith(".java")) {
-				System.err.println("Skip: " + root.relativize(path).toString());
-				continue;
+			try {
+				Source source = readSource(path);
+				sources.put(source.pkg + "." + source.name, source);
+			} catch (ParseFailedException e) {
+				System.err.println(
+						String.format("Failed to parse <%s>: %s", root.relativize(path).toString(), e.getMessage()));
 			}
-			Source source = readSource(path);
-			sources.put(source.pkg + "." + source.name, source);
 		}
 
 		/* Resolve packages and classes */
