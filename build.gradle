@@ -1,0 +1,40 @@
+apply plugin: 'java'
+apply plugin: 'maven'
+apply plugin: 'eclipse'
+apply plugin: 'application'
+
+tasks.withType(JavaCompile) {
+	options.encoding = 'UTF-8'
+}
+
+repositories {
+	mavenCentral()
+}
+
+group = 'com.kuckian'
+version = '0.1'
+
+description = """"""
+
+mainClassName = 'src/main/java/com/kuckian/jorgy/Application'
+
+sourceCompatibility = 8
+targetCompatibility = 8
+
+dependencies {
+
+	compile 'org.graphstream:gs-core:1.3'
+	compile 'org.graphstream:gs-ui:1.3'
+
+	compile 'com.github.javaparser:javaparser-core:3.5.19'
+
+	testCompile 'junit:junit:4.12'
+}
+
+sourceSets {
+	main {
+		java {
+			srcDir "src/main/java"
+		}
+	}
+}
