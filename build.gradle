@@ -16,7 +16,7 @@ version = '0.1'
 
 description = """"""
 
-mainClassName = 'src/main/java/com/kuckian/jorgy/Application'
+mainClassName = 'com.kuckian.jorgy.Jorgy'
 
 sourceCompatibility = 8
 targetCompatibility = 8

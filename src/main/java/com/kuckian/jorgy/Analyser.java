@@ -31,6 +31,8 @@ public class Analyser {
 
 	private final JavaParser parser = new JavaParser();
 
+	private String prefix = "";
+
 	@SuppressWarnings("serial")
 	public static class ParseFailedException extends Exception {
 		public ParseFailedException(String arg0) {
@@ -92,9 +94,11 @@ public class Analyser {
 		for (Map.Entry<String, Source> kv : sources.entrySet()) {
 			String name = kv.getKey();
 			Source source = kv.getValue();
-			JavaPackage pkg = pkgMap.computeIfAbsent(source.pkg, pkgName -> new JavaPackage(pkgName));
-			JavaClass cls = clsMap.computeIfAbsent(name, clsName -> new JavaClass(clsName, pkg));
-			pkg.getClasses().add(cls);
+			if (source.pkg.startsWith(prefix)) {
+				JavaPackage pkg = pkgMap.computeIfAbsent(source.pkg, pkgName -> new JavaPackage(pkgName));
+				JavaClass cls = clsMap.computeIfAbsent(name, clsName -> new JavaClass(clsName, pkg));
+				pkg.getClasses().add(cls);
+			}
 		}
 
 		/* Resolve class links (imports) */
@@ -112,6 +116,15 @@ public class Analyser {
 
 		/* Copy-construct result set so the tree can be gc'd */
 		return new HashSet<>(pkgMap.values());
+	}
+
+	public String getPrefix() {
+		return prefix;
+	}
+
+	public Analyser setPrefix(String prefix) {
+		this.prefix = prefix;
+		return this;
 	}
 
 }

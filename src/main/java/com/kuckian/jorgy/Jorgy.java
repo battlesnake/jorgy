@@ -19,7 +19,7 @@ import org.graphstream.ui.view.ViewerPipe;
 
 import com.kuckian.jorgy.Analyser.ParseFailedException;
 
-public class Application {
+public class Jorgy {
 
 	private static final String[] styleSheetLines = new String[] {
 			"node { fill-color: red; text-color: black; text-offset: 0, 16px; } ", "edge { fill-color: green; } ",
@@ -28,18 +28,20 @@ public class Application {
 			"node.toggle { fill-color: rgb(128,128,255); text-color: rgb(64,64,192); } ",
 			"edge.toggle { fill-color: rgb(192,192,255); }" };
 	private static final String styleSheet = String.join("\n", styleSheetLines);
+	
+	private static final String prefix = "com.kuckian.";
 
 	public static void main(String[] args) throws IOException, ParseFailedException {
 		if (args.length != 1) {
 			throw new IllegalArgumentException("Arguments: <source-dir>");
 		}
 		final String sourceDir = args[0];
-		Set<JavaPackage> graphModel = new Analyser().run(Paths.get(sourceDir));
+		Set<JavaPackage> graphModel = new Analyser().setPrefix(prefix).run(Paths.get(sourceDir));
 		System.setProperty("sun.java2d.opengl", "True");
 		System.setProperty("org.graphstream.ui.renderer", "org.graphstream.ui.j2dviewer.J2DGraphRenderer");
 		Graph graph;
 		if (true) {
-			graph = buildGraphByPackage(graphModel, "com.kuckian.", new GraphStyle<JavaPackage>() {
+			graph = buildGraphByPackage(graphModel, prefix, new GraphStyle<JavaPackage>() {
 				@Override
 				public boolean isWeak(JavaPackage node) {
 					return node.getImports().isEmpty();
@@ -47,21 +49,21 @@ public class Application {
 
 				@Override
 				public boolean isVisible(JavaPackage node) {
-					return !node.getName().endsWith(".util") && node.getName().startsWith("com.kuckian.");
+					return true; //node.getName().startsWith(prefix);
 				}
 
 				@Override
 				public float getNodeWeight(JavaPackage node) {
-					return 1.0f;
+					return node.getImports().isEmpty()  ? 0.1f : 1.0f;
 				}
 
 				@Override
 				public float getEdgeWeight(JavaPackage from, JavaPackage to) {
-					return to.getImports().isEmpty() ? 1.5f : 1.0f;
+					return to.getImports().isEmpty() ? 1.35f : 1.0f;
 				}
 			});
 		} else {
-			graph = buildGraphByClass(graphModel, "com.kuckian.", new GraphStyle<JavaClass>() {
+			graph = buildGraphByClass(graphModel, prefix, new GraphStyle<JavaClass>() {
 				@Override
 				public boolean isWeak(JavaClass node) {
 					return node.getImports().isEmpty();
