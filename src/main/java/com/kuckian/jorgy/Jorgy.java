@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -23,12 +24,15 @@ public class Jorgy {
 
 	private static final String[] styleSheetLines = new String[] {
 			"node { fill-color: red; text-color: black; text-offset: 0, 16px; } ", "edge { fill-color: green; } ",
+			"edge { stroke-color: rgb(0,255,0); stroke-mode: plain; stroke-width: 1px; fill-mode: none; }",
 			"node.weak { fill-color: rgb(255,192,192); text-color: rgb(192,192,192); } ",
-			"edge.weak { fill-color: rgb(192,255,192); }",
-			"node.toggle { fill-color: rgb(128,128,255); text-color: rgb(64,64,192); } ",
-			"edge.toggle { fill-color: rgb(192,192,255); }" };
+			"edge.weak { stroke-color: rgb(224,224,255); }",
+			"node.noImpl { fill-color: rgb(255,128,0); text-color: rgb(0, 0, 255); } ",
+			"edge.noImpl { stroke-color: rgb(255, 224, 192); }",
+			"node.toggle { fill-color: rgb(0,0,255); text-color: rgb(64,64,192); } ",
+			"edge.toggle { stroke-color: rgb(0,0,255); }", };
 	private static final String styleSheet = String.join("\n", styleSheetLines);
-	
+
 	private static final String prefix = "com.kuckian.";
 
 	public static void main(String[] args) throws IOException, ParseFailedException {
@@ -44,44 +48,78 @@ public class Jorgy {
 			graph = buildGraphByPackage(graphModel, prefix, new GraphStyle<JavaPackage>() {
 				@Override
 				public boolean isWeak(JavaPackage node) {
-					return node.getImports().isEmpty();
+					return node.getImports().isEmpty() || node.getName().endsWith(".main");
 				}
 
 				@Override
 				public boolean isVisible(JavaPackage node) {
-					return true; //node.getName().startsWith(prefix);
+					return true; // node.getName().startsWith(prefix);
 				}
 
 				@Override
 				public float getNodeWeight(JavaPackage node) {
-					return node.getImports().isEmpty()  ? 0.1f : 1.0f;
+					return node.getImports().isEmpty() ? 0.1f : 1.0f;
 				}
 
 				@Override
 				public float getEdgeWeight(JavaPackage from, JavaPackage to) {
 					return to.getImports().isEmpty() ? 1.35f : 1.0f;
 				}
+
+				private boolean isImplementation(JavaType type) {
+					return type.getType() == TypeType.Class && !type.getName().endsWith("Exception")
+							&& !type.getName().endsWith("Error");
+				}
+
+				@Override
+				public Set<String> getNodeClasses(JavaPackage node) {
+					Set<String> res = new HashSet<>();
+					if (node.getClasses().stream().noneMatch(this::isImplementation)) {
+						res.add("noImpl");
+					}
+					return res;
+				}
+
+				@Override
+				public Set<String> getEdgeClasses(JavaPackage from, JavaPackage to) {
+					Set<String> res = new HashSet<>();
+					if (from.getImports().stream().filter(t -> t.getPackage().equals(to))
+							.noneMatch(this::isImplementation)) {
+						res.add("noImpl");
+					}
+					return res;
+				}
 			});
 		} else {
-			graph = buildGraphByClass(graphModel, prefix, new GraphStyle<JavaClass>() {
+			graph = buildGraphByClass(graphModel, prefix, new GraphStyle<JavaType>() {
 				@Override
-				public boolean isWeak(JavaClass node) {
+				public boolean isWeak(JavaType node) {
 					return node.getImports().isEmpty();
 				}
 
 				@Override
-				public boolean isVisible(JavaClass node) {
+				public boolean isVisible(JavaType node) {
 					return true || !node.getPackage().getName().endsWith(".util");
 				}
 
 				@Override
-				public float getNodeWeight(JavaClass node) {
+				public float getNodeWeight(JavaType node) {
 					return node.getImports().isEmpty() ? 0.01f : 0.3f;
 				}
 
 				@Override
-				public float getEdgeWeight(JavaClass from, JavaClass to) {
+				public float getEdgeWeight(JavaType from, JavaType to) {
 					return to.getImports().isEmpty() ? 1f : 8.0f;
+				}
+
+				@Override
+				public Set<String> getNodeClasses(JavaPackage node) {
+					return new HashSet<>();
+				}
+
+				@Override
+				public Set<String> getEdgeClasses(JavaPackage from, JavaPackage to) {
+					return new HashSet<>();
 				}
 			});
 		}
@@ -126,6 +164,10 @@ public class Jorgy {
 		float getNodeWeight(NodeType node);
 
 		float getEdgeWeight(NodeType from, NodeType to);
+
+		Set<String> getNodeClasses(JavaPackage node);
+
+		Set<String> getEdgeClasses(JavaPackage from, JavaPackage to);
 	}
 
 	public static void showGraph(Graph graph) {
@@ -164,14 +206,14 @@ public class Jorgy {
 		}
 	}
 
-	public static Graph buildGraphByClass(Set<JavaPackage> graph, String prefix, GraphStyle<JavaClass> style) {
+	public static Graph buildGraphByClass(Set<JavaPackage> graph, String prefix, GraphStyle<JavaType> style) {
 		Graph graphView = new MultiGraph("Project dependencies");
 		graphView.addAttribute("ui.quality");
 		graphView.addAttribute("ui.antialias");
 		graphView.addAttribute("ui.stylesheet", styleSheet);
 		graphView.addAttribute("layout.quality", 4);
 		graphView.addAttribute("layout.stabilization-limit", 1);
-		Map<JavaClass, Node> nodes = new HashMap<>();
+		Map<JavaType, Node> nodes = new HashMap<>();
 		Wrapper<Integer> edgeId = new Wrapper<>(1);
 		graph.forEach(pkg -> {
 			pkg.getClasses().forEach(cls -> {
@@ -218,7 +260,7 @@ public class Jorgy {
 		graphView.addAttribute("ui.stylesheet", styleSheet);
 		graphView.addAttribute("layout.quality", 4);
 		Map<JavaPackage, Node> nodes = new HashMap<>();
-		Map<Integer, Set<JavaClass>> edges = new HashMap<>();
+		Map<Integer, Set<JavaType>> edges = new HashMap<>();
 		Wrapper<Integer> edgeId = new Wrapper<>(1);
 		graph.forEach(pkg -> {
 			if (!style.isVisible(pkg)) {
@@ -230,9 +272,11 @@ public class Jorgy {
 			nodes.put(pkg, node);
 			node.addAttribute("ui.label", displayName);
 			node.addAttribute("layout.weight", style.getNodeWeight(pkg));
+			Set<String> classes = new HashSet<>(style.getNodeClasses(pkg));
 			if (style.isWeak(pkg)) {
-				node.addAttribute("ui.class", "weak");
+				classes.add("weak");
 			}
+			node.addAttribute("ui.class", String.join(",", classes));
 		});
 		graph.forEach(pkg -> {
 			if (!style.isVisible(pkg)) {
@@ -243,15 +287,17 @@ public class Jorgy {
 				if (!style.isVisible(dependency)) {
 					return;
 				}
-				Set<JavaClass> dependants = kv.getValue();
+				Set<JavaType> dependants = kv.getValue();
 				edges.put(edgeId.value, dependants);
 				Edge edge = graphView.addEdge(Integer.toString(edgeId.value), nodes.get(pkg), nodes.get(dependency),
 						true);
 				edgeId.value++;
 				edge.addAttribute("layout.weight", style.getEdgeWeight(pkg, dependency));
+				Set<String> classes = new HashSet<>(style.getEdgeClasses(pkg, dependency));
 				if (style.isWeak(dependency) || style.isWeak(pkg)) {
-					edge.addAttribute("ui.class", "weak");
+					classes.add("weak");
 				}
+				edge.addAttribute("ui.class", String.join(",", classes));
 			});
 		});
 		return graphView;
@@ -278,7 +324,7 @@ public class Jorgy {
 			System.out.println(pkg.getName());
 			pkg.getPackageDependencies().entrySet().forEach(kv -> {
 				JavaPackage dependency = kv.getKey();
-				Set<JavaClass> dependants = kv.getValue();
+				Set<JavaType> dependants = kv.getValue();
 				System.out.println("  " + dependency.getName());
 				dependants.forEach(dependant -> {
 					System.out.println("    " + dependant.getName());

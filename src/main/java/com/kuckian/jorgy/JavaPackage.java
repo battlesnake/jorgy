@@ -9,13 +9,13 @@ import java.util.stream.Collectors;
 public class JavaPackage implements GraphNode {
 
 	private final String name;
-	private final HashSet<JavaClass> classes = new HashSet<>();
+	private final HashSet<JavaType> classes = new HashSet<>();
 
 	public JavaPackage(String name) {
 		this.name = name;
 	}
 
-	public HashSet<JavaClass> getClasses() {
+	public HashSet<JavaType> getClasses() {
 		return classes;
 	}
 
@@ -25,14 +25,14 @@ public class JavaPackage implements GraphNode {
 	}
 
 	@Override
-	public Set<JavaClass> getImports() {
+	public Set<JavaType> getImports() {
 		return classes.stream().flatMap(cls -> cls.getImports().stream()).collect(Collectors.toSet());
 	}
 
-	public Map<JavaPackage, Set<JavaClass>> getPackageDependencies() {
-		Map<JavaPackage, Set<JavaClass>> res = new HashMap<>();
-		for (JavaClass cls : classes) {
-			for (JavaClass dep : cls.getImports()) {
+	public Map<JavaPackage, Set<JavaType>> getPackageDependencies() {
+		Map<JavaPackage, Set<JavaType>> res = new HashMap<>();
+		for (JavaType cls : classes) {
+			for (JavaType dep : cls.getImports()) {
 				res.computeIfAbsent(dep.getPackage(), x -> new HashSet<>()).add(cls);
 			}
 		}

@@ -27,6 +27,7 @@ public class Analyser {
 		public String pkg;
 		public String name;
 		public Set<String> deps;
+		public TypeType type;
 	}
 
 	private final JavaParser parser = new JavaParser();
@@ -52,6 +53,9 @@ public class Analyser {
 		if (unit.getTypes().isEmpty()) {
 			throw new ParseFailedException("Failed to find any type declarations in " + path.toString());
 		}
+		if (unit.getTypes().size() > 1) {
+			throw new ParseFailedException("Found multiple top-level types declared in " + path.toString());
+		}
 		TypeDeclaration<?> typeDec = unit.getType(0);
 		NodeList<ImportDeclaration> imports = unit.getImports();
 		Source source = new Source();
@@ -59,6 +63,17 @@ public class Analyser {
 		source.name = typeDec.getNameAsString();
 		source.deps = new HashSet<>();
 		imports.forEach(importDec -> source.deps.add(importDec.getNameAsString()));
+		if (typeDec.isEnumDeclaration()) {
+			source.type = TypeType.Enum;
+		} else if (typeDec.isClassOrInterfaceDeclaration()) {
+			if (typeDec.toClassOrInterfaceDeclaration().get().isInterface()) {
+				source.type = TypeType.Interface;
+			} else {
+				source.type = TypeType.Class;
+			}
+		} else {
+			source.type = TypeType.Other;
+		}
 		return source;
 	}
 
@@ -90,13 +105,13 @@ public class Analyser {
 
 		/* Resolve packages and classes */
 		Map<String, JavaPackage> pkgMap = new HashMap<>();
-		Map<String, JavaClass> clsMap = new HashMap<>();
+		Map<String, JavaType> clsMap = new HashMap<>();
 		for (Map.Entry<String, Source> kv : sources.entrySet()) {
 			String name = kv.getKey();
 			Source source = kv.getValue();
 			if (source.pkg.startsWith(prefix)) {
 				JavaPackage pkg = pkgMap.computeIfAbsent(source.pkg, pkgName -> new JavaPackage(pkgName));
-				JavaClass cls = clsMap.computeIfAbsent(name, clsName -> new JavaClass(clsName, pkg));
+				JavaType cls = clsMap.computeIfAbsent(name, clsName -> new JavaType(clsName, pkg, source.type));
 				pkg.getClasses().add(cls);
 			}
 		}
@@ -105,9 +120,9 @@ public class Analyser {
 		for (Map.Entry<String, Source> kv : sources.entrySet()) {
 			String name = kv.getKey();
 			Source source = kv.getValue();
-			JavaClass cls = clsMap.get(name);
+			JavaType cls = clsMap.get(name);
 			for (String depName : source.deps) {
-				JavaClass dep = clsMap.get(depName);
+				JavaType dep = clsMap.get(depName);
 				if (dep != null) {
 					cls.getImports().add(dep);
 				}

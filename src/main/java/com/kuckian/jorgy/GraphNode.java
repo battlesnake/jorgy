@@ -6,6 +6,6 @@ public interface GraphNode {
 
 	String getName();
 
-	Set<JavaClass> getImports();
+	Set<JavaType> getImports();
 	
 }

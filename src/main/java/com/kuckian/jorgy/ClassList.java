@@ -1,16 +1,16 @@
 package com.kuckian.jorgy;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 public class ClassList {
-	private final Set<String> clss;
+	private final List<String> clss;
 
 	public ClassList(String clss) {
 		super();
-		this.clss = Arrays.stream(Optional.ofNullable(clss).orElse("").split("\\s*,\\s*")).collect(Collectors.toSet());
+		this.clss = Arrays.stream(Optional.ofNullable(clss).orElse("").split("\\s*,\\s*")).collect(Collectors.toList());
 	}
 
 	public ClassList set(String cls) {
@@ -23,9 +23,13 @@ public class ClassList {
 
 	public ClassList set(String cls, boolean isSet) {
 		if (isSet) {
-			clss.add(cls);
+			if (!clss.contains(cls)) {
+				clss.add(0, cls);
+			}
 		} else {
-			clss.remove(cls);
+			while (clss.remove(cls)) {
+				/* Remove all */
+			}
 		}
 		return this;
 	}
